@@ -3,22 +3,22 @@ var path = require('path');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-var indexRoutes = require('./routes/index');
 var contactRoutes = require('./routes/contact');
 var userRoutes = require('./routes/user');
 var tagRoutes = require('./routes/tag');
+var auth = require('./auth.js');
 
 var app = express();
-
-app.use(logger('dev'));
+app.use(logger(':method :url :response-time :status :user-agent Timestamp: :req[Timestamp]'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', indexRoutes);
-app.use('/contact', contactRoutes);
+
 app.use('/user', userRoutes);
+app.use(auth()); //auth module is here because userRoutes don't need authentication
+app.use('/contact', contactRoutes);
 app.use('/tag', tagRoutes);
 
 // catch 404 and forward to error handler
@@ -35,7 +35,7 @@ app.use(function(req, res, next) {
 if (app.get('env') === 'development') {
   app.use(function(err, req, res, next) {
     res.status(err.status || 500);
-    res.render('error', {
+    res.end('error', {
       message: err.message,
       error: err
     });
@@ -46,7 +46,7 @@ if (app.get('env') === 'development') {
 // no stacktraces leaked to user
 app.use(function(err, req, res, next) {
   res.status(err.status || 500);
-  res.render('error', {
+  res.end('error', {
     message: err.message,
     error: {}
   });

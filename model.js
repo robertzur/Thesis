@@ -21,9 +21,7 @@ var Contact = new Schema({
 });
 
 var User = new Schema ({
-	"username" : String,
-	"password" : String,
-	"salt" : String,
+	"privateKey" : String,
 	"email" : String,
 	"enabled" : { type: Boolean, default: true }
 });
