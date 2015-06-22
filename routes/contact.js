@@ -19,7 +19,7 @@ router.get('/:pagenumber/:pagesize', function (req, res, next) {
 	var publicKey = req.headers['public-key']; 
 
 	//Build query based upon provided parameters
-	var query = Contacts.find({ _ownerId : "ObjectId("+publicKey+")"}); //Get all
+	var query = Contacts.find({ ownerId : publicKey }); //Get all
 	query.limit(pageSize);
 	query.skip((pageNumber - 1) * pageSize);
 
@@ -41,15 +41,48 @@ router.get('/:id', function (req,res,next) {
             else if (contact.ownerId != publicKey)
             		res.status(401).send('Unauthorized');
             	else {
-            		console.log('dupa');
             		res.json(contact);
             	}
         });
 });
 
+router.post('/:id', function (req, res, next){
+	var publicKey = req.headers['public-key'];
+
+	Contacts.findById(req.params.id, function(err, contact) {
+            if (err || contact == null)
+            	res.status(500).send(err);
+            else if (contact.ownerId != publicKey)
+            		res.status(401).send('Unauthorized');
+            	else {
+            		contact.name = req.body.name;
+					contact.description = req.body.description;
+					contact.addressLine1 = req.body.addressLine1;
+					contact.addressLine2 = req.body.addressLine2;
+					contact.phoneNumber = req.body.phoneNumber;
+					contact.cellNumber = req.body.cellNumber;
+					contact.email = req.body.email;
+					contact.skypeId = req.body.skypeId;
+					contact.twitter = req.body.twitter;
+					contact.facebook = req.body.facebook;
+					contact.isContactGroup = req.body.isContactGroup;
+					contact.ownerId= publicKey;
+					contact.parentId = req.body.parentId;
+					contact.tags = null;
+
+					contact.save(function(err) {
+				        if (err)
+				            res.send(err);
+
+				        res.json({ message: 'Contact saved: ' + contact._id });
+				    });
+            	}
+        });
+
+});
+
 router.delete('/:id', function (req, res, next){
 	var publicKey = req.headers['public-key'];
-	console.log(publicKey);
 
 	Contacts.find({ _id : req.params.id, ownerId : publicKey }, function (err, docs){
 		if (docs.length > 0) {
@@ -95,9 +128,72 @@ router.post('/', function (req, res,next) {
         if (err)
             res.send(err);
 
-        res.json({ message: 'Contact created' + contact._id });
+        res.json({ message: 'Contact created: ' + contact._id });
     });
 
+});
+
+/* assing a contact to group */
+router.post('/group/:contactid/:groupid', function (req, res, next) {
+	var publicKey = req.headers['public-key'];
+	var contactId = req.params.contactid;
+	var groupId = req.params.groupid;
+
+	Contacts.findById(contactId, function(err, contact) {
+		 if (err || contact == null)
+            	res.status(500).send(err);
+            else if (contact.ownerId != publicKey)
+            		res.status(401).send('Unauthorized');
+            	else {
+            			Contacts.findById(groupId, function(err, group) {
+						 if (err || group == null)
+				            	res.status(500).send(err);
+				            else if (group.ownerId != publicKey)
+				            		res.status(401).send('Unauthorized');
+				            	else { 
+				            		contact.parentId = group._id;
+				            		contact.save(function(err) {
+								        if (err)
+								            res.send(err);
+
+								        res.json({ message: 'Contact '+contactId +' has been assigned to group '+groupId });
+								    });
+				            	}
+            			});
+            		}
+	});
+});
+
+/* unassing a contact from group */
+router.delete('/group/:contactid/:groupid', function (req, res, next) {
+	var publicKey = req.headers['public-key'];
+	var contactId = req.params.contactid;
+	var groupId = req.params.groupid;
+
+	Contacts.findById(contactId, function(err, contact) {
+		 if (err || contact == null)
+            	res.status(500).send(err);
+            else if (contact.ownerId != publicKey)
+            		res.status(401).send('Unauthorized');
+            	else {
+            			Contacts.findById(groupId, function(err, group) {
+						 if (err || group == null)
+				            	res.status(500).send(err);
+				            else if (group.ownerId != publicKey)
+				            		res.status(401).send('Unauthorized');
+				            	else { 
+				            		console.log('just before assinging null');
+				            		contact.parentId = null;
+				            		contact.save(function(err) {
+								        if (err)
+								            res.send(err);
+
+								        res.json({ message: 'Contact '+contactId +' has been unassigned from group '+groupId });
+								    });
+				            	}
+            			});
+            		}
+	});
 });
 
 module.exports = router;

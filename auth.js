@@ -15,7 +15,7 @@ module.exports = function() {
 			res.status(401).send('Unauthorized');
 		} else {
 			Users.findOne({'_id' : publicKey}, function(err, docs) {
-				if (docs.length < 1) {
+				if (docs == null || docs.length < 1) {
 					res.status(401).send('Unauthorized');
 				} else {
 
