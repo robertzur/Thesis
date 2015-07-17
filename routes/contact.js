@@ -125,10 +125,13 @@ router.post('/', function (req, res,next) {
 	contact.tags = null;
 
 	contact.save(function(err) {
-        if (err)
-            res.send(err);
+        if (err) {
+			console.log(err);
+            res.status(500).send(err); 
 
-        res.json({ message: 'Contact created: ' + contact._id });
+		}
+		else 
+			res.json({ message: 'Contact created: ' + contact._id });
     });
 
 });

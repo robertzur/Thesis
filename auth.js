@@ -20,7 +20,6 @@ module.exports = function() {
 				} else {
 
 					var privateKey = docs.privateKey;
-					console.log('Private key: '+privateKey);
 					var internalDigest = crypto
 		 									.createHash("sha256")
 											.update(privateKey+publicKey+httpMethod+url+timestamp+privateKey)
