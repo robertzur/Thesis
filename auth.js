@@ -21,10 +21,13 @@ module.exports = function() {
 
 					var privateKey = docs.privateKey;
 					console.log('Private key: '+privateKey);
+					console.log(privateKey+publicKey+httpMethod+url+timestamp+privateKey);
 					var internalDigest = crypto
 		 									.createHash("sha256")
 											.update(privateKey+publicKey+httpMethod+url+timestamp+privateKey)
 											.digest("base64");
+
+					console.log(internalDigest);
 					if (internalDigest != digest) {
 						res.status(401).send('Unauthorized');
 					} else {
