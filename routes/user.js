@@ -7,20 +7,18 @@ var uuid = require('node-uuid');
 var crypto = require('crypto');
 var nodemailer = require('nodemailer');
 
-
+var transporter = nodemailer.createTransport({
+		service: 'gmail',
+		auth: {
+			user: 'contactbookservice',
+			pass: 'T2VMIV2swwIgmWNRTCql'
+		}
+	});
+	
 /* Register new account */
 router.post('/', function(req, res, next) {
 	var email = req.body.email;
-	var transport = nodemailer.createTransport("SMTP", {
-	    host: "localhost", // hostname
-	    domain: "localdomain",
-	    secureConnection: false, // use SSL
-	    port: 25, // port for secure SMTP
-	    auth: {
-	        user: "noreply@localhost.localdomain",
-	        pass: "p@$swOrD"
-	    }
-	});
+	
 
 	if (!email)
 	{
@@ -45,10 +43,10 @@ router.post('/', function(req, res, next) {
 			        if (err)
 			            res.end(err);
 
-			       	transport.sendMail({
+			       	transporter.sendMail({
 			       		
 			       		from: config.SenderAddress,
-			       		to: 'robert.zur@live.com',
+			       		to: email,
 			       		subject: 'Registration confirmation',
 			       		text: 'Dear user,\n'
 			       		+ 'Your account in the Contactbook service has been set up. Below are your access keys:\n'
