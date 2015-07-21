@@ -36,7 +36,8 @@ var Log = new Schema ({
 })
 
 var Tag = new Schema({
-	"name" : String
+	"name" : String,
+	"ownerId" : ObjectId
 })
 
 mongoose.connect(config.databaseUrl)
@@ -49,4 +50,4 @@ var Tags = mongoose.model('Tags', Tag);
 exports.Contacts = Contacts;
 exports.Users = Users;
 exports.Logs = Logs;
-exports.Tags = Tag;
+exports.Tags = Tags;
