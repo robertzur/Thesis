@@ -3,6 +3,7 @@ var router = express.Router();
 var model = require('../model');
 
 var Contacts = model.Contacts;
+var Tags = model.Tags;
 
 /* Test route */
 router.get('/', function (req, res, next) {
@@ -32,6 +33,46 @@ router.get('/:pagenumber/:pagesize', function (req, res, next) {
 	});
 });
 
+/* Display list of filtered contacts with pagination */
+router.get('/:searchscope/:searchquery/:pagenumber/:pagesize', function (req, res, next) {
+
+	//Retrieve parameters from URL
+	var pageNumber = (req.params.pagenumber != null && req.params.pagenumber > 0 ? req.params.pagenumber : 1);
+	var pageSize = (req.params.pagesize != null && req.params.pagesize > 0 ? req.params.pagesize : 1);
+
+	var publicKey = req.headers['public-key']; 
+
+	var searchScope = req.params.searchscope;
+	var searchQuery = req.params.searchquery;
+
+	
+	
+	Tags.find({ name : { "$regex" : searchQuery, "$options" : "i" }}, function(err, tags) {
+		
+		//Build query based upon provided parameters
+			if (searchScope == "all") {
+				var query = Contacts.find({ $or :
+						[{ name : { "$regex" : searchQuery, "$options" : "i" } },
+						 { description : { "$regex" : searchQuery, "$options" : "i" } },
+						 { email : { "$regex" : searchQuery, "$options" : "i" } },
+						 { tags :  { $in : tags } }
+						]}
+				); //Get all
+
+			}
+			query.limit(pageSize);
+			query.skip((pageNumber - 1) * pageSize);
+
+			query.exec(function (err, docs) {
+				if(err) {
+					res.end('Error occured' + err.message);
+				} else {
+					res.json(docs);
+				}
+			});
+	});
+});
+
 router.get('/:id', function (req,res,next) {
 	var publicKey = req.headers['public-key'];
 
@@ -41,7 +82,13 @@ router.get('/:id', function (req,res,next) {
             else if (contact.ownerId != publicKey)
             		res.status(401).send('Unauthorized');
             	else {
-            		res.json(contact);
+            		var tagNameArray = [];
+
+            		GetTagNames(0, contact.tags, tagNameArray, function(tagNames){
+            			            			
+            			res.json({ contact : contact, tags : tagNames } );
+            		});
+            		
             	}
         });
 });
@@ -69,13 +116,20 @@ router.post('/:id', function (req, res, next){
 					contact.ownerId= publicKey;
 					contact.parentId = req.body.parentId;
 					contact.tags = null;
+					var tagsArray = req.body.tags.split(',');
+					var tagsIdArray = []; 
+					GetTagIDs(0, tagsArray, tagsIdArray, publicKey, function(tagIDs){
+						contact.tags = tagIDs;
+						contact.save(function(err) {
+					        if (err) {
+								console.log(err);
+					            res.status(500).send(err); 
 
-					contact.save(function(err) {
-				        if (err)
-				            res.send(err);
-
-				        res.json({ message: 'Contact saved: ' + contact._id });
-				    });
+							}
+							else 
+								res.json({ message: 'Contact saved: ' + contact._id });
+				    	});
+					})
             	}
         });
 
@@ -107,7 +161,7 @@ router.delete('/:id', function (req, res, next){
 router.post('/', function (req, res,next) {
 	var publicKey = req.headers['public-key'];
 
-	var  contact = new Contacts();
+	var contact = new Contacts();
 
 	contact.name = req.body.name;
 	contact.description = req.body.description;
@@ -122,18 +176,23 @@ router.post('/', function (req, res,next) {
 	contact.isContactGroup = req.body.isContactGroup;
 	contact.ownerId= publicKey;
 	contact.parentId = req.body.parentId;
-	contact.tags = null;
 
-	contact.save(function(err) {
-        if (err) {
-			console.log(err);
-            res.status(500).send(err); 
+	var tagsArray = req.body.tags.split(',');
+	var tagsIdArray = []; 
+	
+	GetTagIDs(0, tagsArray, tagsIdArray, publicKey, function(tagIDs){
+		
+		contact.tags = tagIDs;
+		contact.save(function(err) {
+	        if (err) {
+				console.log(err);
+	            res.status(500).send(err); 
 
-		}
-		else 
-			res.json({ message: 'Contact created: ' + contact._id });
-    });
-
+			}
+			else 
+				res.json({ message: 'Contact created: ' + contact._id });
+    	});
+	})
 });
 
 /* assing a contact to group */
@@ -185,7 +244,7 @@ router.delete('/group/:contactid/:groupid', function (req, res, next) {
 				            else if (group.ownerId != publicKey)
 				            		res.status(401).send('Unauthorized');
 				            	else { 
-				            		console.log('just before assinging null');
+				            		
 				            		contact.parentId = null;
 				            		contact.save(function(err) {
 								        if (err)
@@ -198,5 +257,51 @@ router.delete('/group/:contactid/:groupid', function (req, res, next) {
             		}
 	});
 });
+
+
+function GetTagNames(index, tagIdArray, tagNameArray, callback){
+	if(index < tagIdArray.length){
+		Tags.findById(tagIdArray[index], function(err, tag) {
+			if(err)
+				throw err;
+			else {
+				tagNameArray.push(tag.name);
+			}
+			GetTagNames(index+1, tagIdArray, tagNameArray, callback);
+		});
+	} else {
+		callback(tagNameArray);
+	}
+
+}
+
+function GetTagIDs(index, tagsArray, tagsIdArray, publicKey, callback){
+	
+	if(index < tagsArray.length){
+		Tags.find({ name : tagsArray[index], ownerId : publicKey}, function(err, tags){
+			if (tags.length > 0) {
+				tagsIdArray.push(tags[0]._id);
+			} else {
+				var tag = new Tags();
+
+				tag.name = tagsArray[index];
+				tag.ownerId = publicKey;
+				tag.save(function (err){
+					if(err){
+						throw Error(err);
+					} else {
+						tagsIdArray.push(tag._id);
+					}
+				})	
+			}
+			GetTagIDs(index+1, tagsArray, tagsIdArray, publicKey, callback);
+		})
+	} else {
+
+		setTimeout(function(){
+			callback(tagsIdArray);
+		}, 2000);
+	}
+}
 
 module.exports = router;
