@@ -11,16 +11,21 @@ router.get('/', function (req, res, next) {
 });
 
 /* Display list of contacts with pagination */
-router.get('/:pagenumber/:pagesize', function (req, res, next) {
+router.get('/:pagenumber/:pagesize/:isgroup', function (req, res, next) {
 
 	//Retrieve parameters from URL
 	var pageNumber = (req.params.pagenumber != null && req.params.pagenumber > 0 ? req.params.pagenumber : 1);
 	var pageSize = (req.params.pagesize != null && req.params.pagesize > 0 ? req.params.pagesize : 1);
+	var isGroup = req.params.isgroup;
 
 	var publicKey = req.headers['public-key']; 
 
 	//Build query based upon provided parameters
-	var query = Contacts.find({ ownerId : publicKey }); //Get all
+	if(isGroup=="true") {
+		var query = Contacts.find({ ownerId : publicKey, isContactGroup : true }); //Get all groups
+	} else {
+		var query = Contacts.find({ ownerId : publicKey, isContactGroup : false }); //Get all contacts
+	}
 	query.limit(pageSize);
 	query.skip((pageNumber - 1) * pageSize);
 
@@ -33,12 +38,33 @@ router.get('/:pagenumber/:pagesize', function (req, res, next) {
 	});
 });
 
+/* Display list of contacts under specific group */
+router.get('/group/:groupid', function (req, res, next) {
+
+	//Retrieve parameters from URL
+	var groupId = req.params.groupid;
+
+	var publicKey = req.headers['public-key']; 
+
+	//Build query based upon provided parameters
+	var query = Contacts.find({ ownerId : publicKey, parentId : groupId }); //Get all contacts assigned to group
+	
+	query.exec(function (err, docs) {
+		if(err) {
+			res.end('Error occured' + err.message);
+		} else {
+			res.json(docs);
+		}
+	});
+});
+
 /* Display list of filtered contacts with pagination */
-router.get('/:searchscope/:searchquery/:pagenumber/:pagesize', function (req, res, next) {
+router.get('/:searchscope/:searchquery/:pagenumber/:pagesize/:isgroup', function (req, res, next) {
 
 	//Retrieve parameters from URL
 	var pageNumber = (req.params.pagenumber != null && req.params.pagenumber > 0 ? req.params.pagenumber : 1);
 	var pageSize = (req.params.pagesize != null && req.params.pagesize > 0 ? req.params.pagesize : 1);
+	var isGroup = req.params.isgroup;
 
 	var publicKey = req.headers['public-key']; 
 
@@ -51,14 +77,22 @@ router.get('/:searchscope/:searchquery/:pagenumber/:pagesize', function (req, re
 		
 		//Build query based upon provided parameters
 			if (searchScope == "all") {
+				if(isGroup=="true"){
 				var query = Contacts.find({ $or :
+						[{ name : { "$regex" : searchQuery, "$options" : "i" } },
+						 { description : { "$regex" : searchQuery, "$options" : "i" } },
+						 { tags :  { $in : tags } }
+						], isContactGroup : true}
+					); //Get all groups
+				} else {
+					var query = Contacts.find({ $or :
 						[{ name : { "$regex" : searchQuery, "$options" : "i" } },
 						 { description : { "$regex" : searchQuery, "$options" : "i" } },
 						 { email : { "$regex" : searchQuery, "$options" : "i" } },
 						 { tags :  { $in : tags } }
-						]}
-				); //Get all
-
+						], isContactGroup : false}
+					); //Get all contacts
+				}
 			}
 			query.limit(pageSize);
 			query.skip((pageNumber - 1) * pageSize);
@@ -85,8 +119,11 @@ router.get('/:id', function (req,res,next) {
             		var tagNameArray = [];
 
             		GetTagNames(0, contact.tags, tagNameArray, function(tagNames){
-            			            			
-            			res.json({ contact : contact, tags : tagNames } );
+						if (contact.isContactGroup) {
+							res.json({ group : contact, tags : tagNames } );
+						} else { 	            			
+            				res.json({ contact : contact, tags : tagNames } );
+						}
             		});
             		
             	}
